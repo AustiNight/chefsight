@@ -1,0 +1,5 @@
+pandas
+requests
+shutil
+pillow
+# openai # Uncomment in production
