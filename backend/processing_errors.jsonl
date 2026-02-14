@@ -1,0 +1,6 @@
+{"timestamp": "2026-02-12T16:33:33.084136", "filename": "Image (2).jpg", "error": "Expecting value: line 1 column 1 (char 0)"}
+{"timestamp": "2026-02-12T16:50:21.344760", "filename": "Image (2).jpg", "error": "Expecting value: line 1 column 1 (char 0)"}
+{"timestamp": "2026-02-12T16:51:28.221914", "filename": "20260124_meal 1 Jan 24th ($50 per diem).jpg", "error": "AI returned an empty list"}
+{"timestamp": "2026-02-12T16:51:34.118769", "filename": "20260125_meal 1 25th.png", "error": "AI returned an empty list"}
+{"timestamp": "2026-02-12T16:52:14.313542", "filename": "20260127_Client snacks for workshop room.jpg", "error": "Expecting value: line 1 column 1 (char 0)"}
+{"timestamp": "2026-02-12T16:52:17.555014", "filename": "20260127_meal 1 Jan 27th.jpg", "error": "AI returned an empty list"}

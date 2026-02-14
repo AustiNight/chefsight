@@ -36,9 +36,18 @@ Prerequisites: Python 3.9+
     ```bash
     pip install -r requirements.txt
     ```
-3.  Run the script:
+3.  Configure OpenAI API key:
+    ```bash
+    cp .env.example .env
+    # then set OPENAI_API_KEY in backend/.env
+    ```
+4.  Run the script:
     ```bash
     python process_receipts.py
+    ```
+5.  (Optional) Start the API server so the dashboard button can trigger scans:
+    ```bash
+    python server.py
     ```
 
 ## Google Drive Sync
@@ -51,8 +60,4 @@ To automate the ingestion of receipts:
 
 ## AI Configuration
 
-The current `process_receipts.py` contains a `mock_ai_extraction` function to demonstrate functionality without an API key. To use real OCR:
-
-1.  Get an OpenAI API Key.
-2.  Uncomment `import openai` and set `client = OpenAI(api_key="...")`.
-3.  Replace the mock function with a real call to `client.chat.completions.create` using `gpt-4o` and the provided `SYSTEM_PROMPT`.
+`process_receipts.py` uses OpenAI for receipt extraction. The script reads `OPENAI_API_KEY` from `backend/.env`, and will prompt you if it is missing (then saves it to `.env`).

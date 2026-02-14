@@ -57,9 +57,9 @@ export const filterExpenses = (expenses: Expense[], range: TimeRange): Expense[]
 
 export const fetchExpenses = async (): Promise<Expense[]> => {
   try {
-    // CHANGE: Use relative path 'data/expenses.csv' instead of absolute '/data/expenses.csv'
-    // This ensures compatibility with GitHub Pages repo subpaths (e.g. /chefsight/data/...)
-    const response = await fetch('data/expenses.csv');
+    // Use relative path and add cache-busting to avoid stale CSV after scans
+    const cacheBuster = Date.now();
+    const response = await fetch(`data/expenses.csv?ts=${cacheBuster}`, { cache: 'no-store' });
     
     if (!response.ok) {
       throw new Error('Live CSV not found');

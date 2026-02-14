@@ -5,15 +5,98 @@ import base64
 import json
 import csv
 from datetime import datetime
+from getpass import getpass
+from typing import Optional, List, Dict, Any
 import pandas as pd
-# In a real scenario, you would import the OpenAI client
-# from openai import OpenAI
+from openai import OpenAI
+
+# Initialize Client
+_openai_client = None
+_base_dir = os.path.dirname(__file__)
+_env_file_path = os.path.join(_base_dir, ".env")
+_error_log_jsonl = os.path.join(_base_dir, "processing_errors.jsonl")
+
+def _read_dotenv_value(key, path):
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                    continue
+                k, v = stripped.split("=", 1)
+                if k.strip() != key:
+                    continue
+                value = v.strip().strip('"').strip("'")
+                return value if value else None
+    except OSError:
+        return None
+    return None
+
+def _write_dotenv_value(key, value, path):
+    lines = []
+    found = False
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except OSError:
+            lines = []
+    new_lines = []
+    for line in lines:
+        if line.strip().startswith(f"{key}="):
+            new_lines.append(f"{key}={value}\n")
+            found = True
+        else:
+            new_lines.append(line)
+    if not found:
+        new_lines.append(f"{key}={value}\n")
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+def set_openai_key(api_key):
+    api_key = (api_key or "").strip()
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not set")
+    os.environ["OPENAI_API_KEY"] = api_key
+    _write_dotenv_value("OPENAI_API_KEY", api_key, _env_file_path)
+    global _openai_client
+    _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
+
+def get_openai_client(allow_prompt: bool = True):
+    global _openai_client
+    if _openai_client is not None:
+        return _openai_client
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        api_key = _read_dotenv_value("OPENAI_API_KEY", _env_file_path)
+        if api_key:
+            os.environ["OPENAI_API_KEY"] = api_key
+    if not api_key:
+        if not allow_prompt:
+            raise RuntimeError("OPENAI_API_KEY is not set")
+        try:
+            api_key = getpass("Enter OPENAI_API_KEY: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            raise RuntimeError("OPENAI_API_KEY is not set and prompt was cancelled")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY is not set")
+        set_openai_key(api_key)
+
+    if _openai_client is not None:
+        return _openai_client
+    _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
 
 # Configuration
-INPUT_FOLDER = "receipts_input"
-PROCESSED_FOLDER = "receipts_processed"
-DATA_FILE = "../public/data/expenses.csv" # Path relative to where script is run, usually in 'backend'
-ERROR_LOG = "processing_errors.log"
+INPUT_FOLDER = os.path.join(_base_dir, "receipts_input")
+PROCESSED_FOLDER = os.path.join(_base_dir, "receipts_processed")
+DATA_FILE = os.path.abspath(os.path.join(_base_dir, "..", "public", "data", "expenses.csv"))
+ERROR_LOG = os.path.join(_base_dir, "processing_errors.log")
+FAILED_FOLDER = os.path.join(_base_dir, "receipts_failed")
 
 # Define the Prompt for the AI
 SYSTEM_PROMPT = """
@@ -39,6 +122,8 @@ def setup_directories():
         os.makedirs(INPUT_FOLDER)
     if not os.path.exists(PROCESSED_FOLDER):
         os.makedirs(PROCESSED_FOLDER)
+    if not os.path.exists(FAILED_FOLDER):
+        os.makedirs(FAILED_FOLDER)
     
     # Ensure CSV exists with headers
     if not os.path.exists(DATA_FILE):
@@ -51,55 +136,141 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-def mock_ai_extraction(base64_image):
-    """
-    MOCK FUNCTION: Simulating an OpenAI GPT-4o API call.
-    In production, replace this with actual API client code.
-    """
-    print("  > Simulating AI extraction...")
-    
-    # Simulating a delay
-    import time
-    time.sleep(1)
-    
-    # Simulating a response based on the "file" (randomly)
-    # In reality, you would send the base64_image to the API
-    
-    mock_response = [
-        {
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "store": "Costco",
-            "item": "Ribeye Steaks",
-            "total_cost": 45.00,
-            "units": 3.0,
-            "unit_type": "lbs",
-            "calculated_cost_per_unit": 15.00,
-            "category": "Proteins"
-        },
-        {
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "store": "Costco",
-            "item": "Olive Oil",
-            "total_cost": 22.00,
-            "units": 2.0,
-            "unit_type": "liters",
-            "calculated_cost_per_unit": 11.00,
-            "category": "Spices/Oils"
-        }
-    ]
-    
-    return mock_response
+def _parse_json_content(content):
+    cleaned = content.replace("```json", "").replace("```", "").strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        candidates = []
+        if "{" in cleaned and "}" in cleaned:
+            candidates.append(cleaned[cleaned.find("{"):cleaned.rfind("}") + 1])
+        if "[" in cleaned and "]" in cleaned:
+            candidates.append(cleaned[cleaned.find("["):cleaned.rfind("]") + 1])
+        for candidate in candidates:
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+        raise
 
-def process_images():
-    # Find all images
+def _normalize_extraction(extracted_data):
+    if isinstance(extracted_data, list):
+        if not extracted_data:
+            raise ValueError("AI returned an empty list")
+        return extracted_data
+    if isinstance(extracted_data, dict):
+        return [extracted_data]
+    raise ValueError("AI response was not a JSON object or list")
+
+def real_ai_extraction(base64_image, allow_prompt: bool = True):
+    client = get_openai_client(allow_prompt=allow_prompt)
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": SYSTEM_PROMPT},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    },
+                ],
+            }
+        ],
+        max_tokens=1000,
+    )
+    # Extract JSON string from response and parse it
+    content = response.choices[0].message.content
+    return _parse_json_content(content or "")
+
+def _list_receipt_files(folder):
     extensions = ['*.jpg', '*.jpeg', '*.png', '*.heic']
     files = []
     for ext in extensions:
-        files.extend(glob.glob(os.path.join(INPUT_FOLDER, ext)))
+        files.extend(glob.glob(os.path.join(folder, ext)))
+    return sorted(files)
+
+def _write_error_log(filename, error):
+    timestamp = datetime.now().isoformat()
+    with open(ERROR_LOG, "a") as err_log:
+        err_log.write(f"{timestamp}: Error processing {filename} - {str(error)}\n")
+    with open(_error_log_jsonl, "a") as json_log:
+        json_log.write(json.dumps({
+            "timestamp": timestamp,
+            "filename": filename,
+            "error": str(error)
+        }) + "\n")
+
+def get_failed_receipts():
+    failures = {}
+    failed_files = {os.path.basename(p): p for p in _list_receipt_files(FAILED_FOLDER)}
+    if os.path.exists(_error_log_jsonl):
+        with open(_error_log_jsonl, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                filename = entry.get("filename")
+                if not filename:
+                    continue
+                if filename not in failed_files:
+                    continue
+                failures[filename] = {
+                    "filename": filename,
+                    "error": entry.get("error", "Unknown error"),
+                    "timestamp": entry.get("timestamp")
+                }
+    for filename in failed_files.keys():
+        if filename not in failures:
+            failures[filename] = {
+                "filename": filename,
+                "error": "Unknown error",
+                "timestamp": None
+            }
+    return list(failures.values())
+
+def _safe_move(src_path, dest_folder):
+    os.makedirs(dest_folder, exist_ok=True)
+    dest_path = os.path.join(dest_folder, os.path.basename(src_path))
+    if os.path.abspath(src_path) == os.path.abspath(dest_path):
+        return dest_path
+    if os.path.exists(dest_path):
+        base, ext = os.path.splitext(os.path.basename(src_path))
+        dest_path = os.path.join(dest_folder, f"{base}_{int(datetime.now().timestamp())}{ext}")
+    shutil.move(src_path, dest_path)
+    return dest_path
+
+def _resolve_specific_files(files: Optional[List[str]]):
+    resolved = []
+    if not files:
+        return resolved
+    for name in files:
+        safe_name = os.path.basename(name)
+        for folder in [INPUT_FOLDER, FAILED_FOLDER]:
+            candidate = os.path.join(folder, safe_name)
+            if os.path.exists(candidate):
+                resolved.append(candidate)
+                break
+    return resolved
+
+def process_images(retry_failed: bool = False, specific_files: Optional[List[str]] = None, allow_prompt: bool = True):
+    # Find all images
+    if specific_files:
+        files = _resolve_specific_files(specific_files)
+    else:
+        files = _list_receipt_files(INPUT_FOLDER)
+        if retry_failed:
+            files.extend(_list_receipt_files(FAILED_FOLDER))
     
     print(f"Found {len(files)} receipts to process.")
 
     new_rows = []
+    errors: List[Dict[str, Any]] = []
+    processed_count = 0
 
     for file_path in files:
         filename = os.path.basename(file_path)
@@ -109,23 +280,23 @@ def process_images():
             # 1. Encode Image
             base64_img = encode_image(file_path)
             
-            # 2. Send to AI (Mocked)
-            extracted_data = mock_ai_extraction(base64_img)
+            # 2. Send to AI
+            extracted_data = real_ai_extraction(base64_img, allow_prompt=allow_prompt)
             
             # 3. Append to list
-            if isinstance(extracted_data, list):
-                new_rows.extend(extracted_data)
-            else:
-                new_rows.append(extracted_data)
+            normalized = _normalize_extraction(extracted_data)
+            new_rows.extend(normalized)
             
             # 4. Move file to processed
-            shutil.move(file_path, os.path.join(PROCESSED_FOLDER, filename))
+            _safe_move(file_path, PROCESSED_FOLDER)
+            processed_count += 1
             print("  > Success. Moved to processed.")
 
         except Exception as e:
             print(f"  > Error processing {filename}: {e}")
-            with open(ERROR_LOG, "a") as err_log:
-                err_log.write(f"{datetime.now()}: Error processing {filename} - {str(e)}\n")
+            _write_error_log(filename, e)
+            errors.append({"filename": filename, "error": str(e)})
+            _safe_move(file_path, FAILED_FOLDER)
 
     # 5. Update CSV using Pandas
     if new_rows:
@@ -137,6 +308,13 @@ def process_images():
         print("Done.")
     else:
         print("No new data to write.")
+
+    return {
+        "processed": processed_count,
+        "failed": len(errors),
+        "written_rows": len(new_rows),
+        "errors": errors
+    }
 
 if __name__ == "__main__":
     setup_directories()

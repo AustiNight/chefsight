@@ -24,7 +24,12 @@ Welcome to **ChefSight**, your automated kitchen finance intelligence system. Th
     cd backend
     pip install -r requirements.txt
     ```
-    *Note: This installs `pandas`, `requests`, and `shutil`.*
+    1. Configure your OpenAI key:
+        ```bash
+        cp .env.example .env
+        # set OPENAI_API_KEY in backend/.env
+        ```
+    *Note: This installs `pandas`, `requests`, and `pillow`.*
 
 3.  **Setup the Frontend (React)**
     ```bash
@@ -49,6 +54,7 @@ Welcome to **ChefSight**, your automated kitchen finance intelligence system. Th
     cd backend
     python process_receipts.py
     ```
+    *Tip: If you run `python server.py` in the backend, you can trigger scans from the dashboard using the "Scan New Receipts" button and retry failed receipts directly in the UI.*
 3.  **What happens next?**
     *   The script reads images from `receipts_input`.
     *   It extracts date, store, item, cost, and category data.
@@ -65,49 +71,18 @@ Welcome to **ChefSight**, your automated kitchen finance intelligence system. Th
 
 ---
 
-## 🧠 3. Switching to Real AI (OpenAI GPT-4o)
+## 🧠 3. AI Configuration (OpenAI GPT-4o)
 
-By default, the system runs in **Mock Mode** (simulating data extraction) so you can test it without paying for API credits. To enable real Optical Character Recognition (OCR):
+The processor reads `OPENAI_API_KEY` from `backend/.env`. If it is missing, the script will prompt you and save it to `.env`.
 
-1.  **Get an API Key**: Sign up at [platform.openai.com](https://platform.openai.com) and generate a new secret key.
-2.  **Update Requirements**: Open `backend/requirements.txt` and uncomment `openai`. Run `pip install -r requirements.txt` again.
-3.  **Update the Script**: Open `backend/process_receipts.py`.
-    
-    Replace the `mock_ai_extraction` function with this code:
-
-    ```python
-    from openai import OpenAI
-    
-    # Initialize Client
-    client = OpenAI(api_key="YOUR_OPENAI_API_KEY_HERE")
-
-    def real_ai_extraction(base64_image):
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": SYSTEM_PROMPT},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
-                        },
-                    ],
-                }
-            ],
-            max_tokens=1000,
-        )
-        # Extract JSON string from response and parse it
-        content = response.choices[0].message.content
-        # Basic cleanup to ensure we get pure JSON
-        content = content.replace("```json", "").replace("```", "").strip()
-        return json.loads(content)
+1.  **Get an API Key**: Sign up at platform.openai.com and generate a new secret key.
+2.  **Set the Key**:
+    ```bash
+    cd backend
+    cp .env.example .env
+    # set OPENAI_API_KEY in backend/.env
     ```
-
-4.  Update the `process_images` loop to call `real_ai_extraction` instead of `mock_ai_extraction`.
+    *If `OPENAI_API_KEY` is missing, the script will prompt you and save it to `backend/.env`.*
 
 ---
 
