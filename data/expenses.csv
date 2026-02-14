@@ -1,0 +1,19 @@
+date,store,item,total_cost,units,unit_type,calculated_cost_per_unit,category
+2026-01-26,James Joyce Irish Pub & Restaurant,DUBLIN 12 MULE,14.0,1.0,ea,14.0,Beverages
+2026-01-26,James Joyce Irish Pub & Restaurant,CORNED BEEF & CABBAGE,26.0,1.0,ea,26.0,Proteins
+2026-01-26,James Joyce Irish Pub & Restaurant,Skellig Gin Single,10.0,1.0,ea,10.0,Beverages
+2026-01-26,James Joyce Irish Pub & Restaurant,FRENCH ONION BURGER,19.0,1.0,ea,19.0,Proteins
+2026-01-26,James Joyce Irish Pub & Restaurant,IRISH POINT OYSERS,15.0,1.0,ea,15.0,Proteins
+2026-01-26,James Joyce Irish Pub & Restaurant,FRIED CHEDDAR CHEESE CURDS,15.0,1.0,ea,15.0,Dairy
+2026-01-26,Baltimore Marriott Waterfront,Cup Soupe Du Jour,20.0,1.0,ea,20.0,Beverages
+2026-01-26,Baltimore Marriott Waterfront,Thyme Scented Seared Salmon,0.0,0.0,ea,0.0,Proteins
+2026-01-28,James Joyce Irish Pub & Restaurant,REUBEN,21.0,1.0,ea,21.0,Proteins
+2026-01-26,Baltimore Marriott Waterfront,Soup du Jour,20.0,1.0,ea,20.0,Beverages
+2026-01-26,Baltimore Marriott Waterfront,Thyme Scented Seared Salmon,0.0,0.0,ea,0.0,Proteins
+2026-01-26,James Joyce,Dublin 12 Mule,14.0,1.0,ea,14.0,Beverages
+2026-01-26,James Joyce,Corned Beef & Cabbage,24.0,1.0,ea,24.0,Proteins
+2026-01-26,James Joyce,Skellig Gin Single,15.0,1.0,ea,15.0,Beverages
+2026-01-26,James Joyce,French Onion Burger,19.0,1.0,ea,19.0,Proteins
+2026-01-26,James Joyce,Irish Point Oysters,15.0,1.0,ea,15.0,Proteins
+2026-01-26,James Joyce,Fried Cheddar Cheese Curds,15.0,1.0,ea,15.0,Dairy
+2026-01-28,James Joyce,Reuben,21.0,1.0,ea,21.0,Proteins
