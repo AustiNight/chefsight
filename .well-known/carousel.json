@@ -1,0 +1,7 @@
+{
+  "title": "ChefSight",
+  "description": "Kitchen finance automation — process receipt photos with AI, visualize expenses on a React dashboard.",
+  "tags": ["chef-toolkit", "ai", "finance", "dashboard"],
+  "projectKey": "chefsight",
+  "repoUrl": "https://github.com/AustiNight/chefsight"
+}
